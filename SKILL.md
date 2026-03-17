@@ -1,6 +1,12 @@
 ---
 name: zhuanzhuan-recycle-estimator
 description: Use when manually testing or demoing the OpenClaw recycle valuation API with text, images, token continuation, session continuation, or product switching flows
+version: 1.0.0
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - python3
 ---
 
 # Zhuanzhuan Recycle Estimator
@@ -15,7 +21,7 @@ description: Use when manually testing or demoing the OpenClaw recycle valuation
 - 需要手动验证 `POST /zai/find_mate/v1/openclaw/recycle-skill/valuate`
 - 需要复用上一轮返回的 `skill_token`
 - 需要验证 `session_id` 续接或 `allow_auto_resume`
-- 需要测试“换一个商品”后的新上下文
+- 需要测试"换一个商品"后的新上下文
 - 需要给 ClawHub/OpenClaw 做 demo
 
 ## Prerequisites
@@ -41,7 +47,7 @@ description: Use when manually testing or demoing the OpenClaw recycle valuation
 推荐命令：
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --reset-state \
   --text "我有一个 iPhone 17 Pro 需要回收"
 ```
@@ -49,14 +55,14 @@ python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhu
 ### 1. 纯文字估价
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --text "帮我估一下这台 iPhone 13 128G"
 ```
 
 ### 2. 图片估价
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --text "帮我看看这个能卖多少" \
   --image "https://example.com/phone.jpg?sign=abc" \
   --image-media-id "oc_media_001"
@@ -65,9 +71,9 @@ python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhu
 使用本地文件（自动 base64 编码）：
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --text "帮我看看这个能卖多少" \
-  --image "/Users/chenjinxin/.openclaw/media/inbound/xxx.jpg"
+  --image "/path/to/local/image.jpg"
 ```
 
 说明：
@@ -78,7 +84,7 @@ python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhu
 ### 3. 续接上一轮
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --text "128G 的，屏幕有轻微划痕" \
   --skill-token "<上一次返回的 skill_token>" \
   --session-id "<上一次返回的 session_id>"
@@ -87,7 +93,7 @@ python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhu
 ### 4. 测试商品切换
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --text "换一个，帮我看看这台戴森吹风机" \
   --skill-token "<上一次返回的 skill_token>" \
   --session-id "<上一次返回的 session_id>"
@@ -187,14 +193,14 @@ python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhu
 ### 推荐续接命令
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --text "512g"
 ```
 
 ### 验证禁止自动续接
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --text "帮我估一下这台 iPhone" \
   --skill-token "<token>" \
   --allow-auto-resume false
@@ -203,7 +209,7 @@ python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhu
 ### 强制新建 session
 
 ```bash
-python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhuanzhuan_recycle_skill.py \
+python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
   --text "重新开始，估一下这个" \
   --skill-token "<token>" \
   --force-new-session true
@@ -213,6 +219,6 @@ python3 /Users/chenjinxin/.claude/skills/zhuanzhuan-recycle-estimator/invoke_zhu
 
 - 如果返回 `TOKEN_DAILY_LIMIT_EXCEEDED` 或 `IP_DAILY_LIMIT_EXCEEDED`，先检查限流阈值
 - 如果 `follow_up_question` 有内容，直接将 `follow_up_question` 的文本原样展示给用户，不要自行编造或替换
-- 只有当价格为 0 且 `missing_fields` 为空且 `follow_up_question` 也为空时，才说明”当前暂时无法给出有效估价，可补充图片或稍后重试”
+- 只有当价格为 0 且 `missing_fields` 为空且 `follow_up_question` 也为空时，才说明"当前暂时无法给出有效估价，可补充图片或稍后重试"
 - 不要向用户输出 Apollo、cookie 池、下游报价接口、内部配置缺失等实现细节
 - 若要切换环境，使用 `--base-url`

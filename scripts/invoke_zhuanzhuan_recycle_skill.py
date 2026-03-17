@@ -12,7 +12,7 @@ from typing import Any
 from urllib import request
 from urllib.error import HTTPError
 
-STATE_DIR = os.path.expanduser("~/.claude/skills/zhuanzhuan-recycle-estimator")
+STATE_DIR = os.path.expanduser("~/.openclaw/state/zhuanzhuan-recycle-estimator")
 STATE_FILE = os.path.join(STATE_DIR, ".skill_state.json")
 THREAD_ENV_KEYS = (
     "CLAUDE_CONVERSATION_ID",
