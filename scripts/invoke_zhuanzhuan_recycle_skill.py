@@ -8,7 +8,6 @@ import mimetypes
 import os
 import re
 import sys
-from typing import Any
 from urllib import request
 from urllib.error import HTTPError
 
@@ -23,17 +22,17 @@ THREAD_ENV_KEYS = (
 )
 
 
-def parse_bool(value: str) -> bool:
+def parse_bool(value):
     """解析布尔字符串。"""
     normalized = value.strip().lower()
     if normalized in {"true", "1", "yes", "y"}:
         return True
     if normalized in {"false", "0", "no", "n"}:
         return False
-    raise argparse.ArgumentTypeError(f"无效的布尔值: {value}")
+    raise argparse.ArgumentTypeError("无效的布尔值: {0}".format(value))
 
 
-def resolve_thread_scope() -> str | None:
+def resolve_thread_scope():
     """解析当前会话标识，用于对话级状态隔离。"""
     for key in THREAD_ENV_KEYS:
         value = os.getenv(key, "").strip()
@@ -42,7 +41,7 @@ def resolve_thread_scope() -> str | None:
     return None
 
 
-def resolve_state_file() -> str:
+def resolve_state_file():
     """解析当前请求应使用的状态文件路径。"""
     thread_scope = resolve_thread_scope()
     if not thread_scope:
@@ -51,10 +50,10 @@ def resolve_state_file() -> str:
     normalized = re.sub(r"[^a-zA-Z0-9]+", "_", thread_scope).strip("_")
     if not normalized:
         return STATE_FILE
-    return os.path.join(STATE_DIR, f".skill_state_{normalized}.json")
+    return os.path.join(STATE_DIR, ".skill_state_{0}.json".format(normalized))
 
 
-def load_state() -> dict[str, Any]:
+def load_state():
     """加载最近一次调用状态。"""
     state_file = resolve_state_file()
     if not os.path.exists(state_file):
@@ -66,22 +65,31 @@ def load_state() -> dict[str, Any]:
         return {}
 
 
-def save_state(state: dict[str, Any]) -> None:
+def ensure_parent_dir(path):
+    """兼容旧版本 Python 的目录创建。"""
+    parent_dir = os.path.dirname(path)
+    if parent_dir and not os.path.isdir(parent_dir):
+        os.makedirs(parent_dir)
+
+
+def save_state(state):
     """保存最近一次调用状态。"""
     state_file = resolve_state_file()
-    os.makedirs(os.path.dirname(state_file), exist_ok=True)
+    ensure_parent_dir(state_file)
     with open(state_file, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 
-def parse_json_argument(raw: str, argument_name: str) -> dict[str, Any]:
+def parse_json_argument(raw, argument_name):
     """解析命令行中的 JSON 对象参数。"""
     try:
         parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise argparse.ArgumentTypeError(f"{argument_name} 必须是合法 JSON: {exc}") from exc
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "{0} 必须是合法 JSON: {1}".format(argument_name, exc)
+        )
     if not isinstance(parsed, dict):
-        raise argparse.ArgumentTypeError(f"{argument_name} 必须是 JSON 对象")
+        raise argparse.ArgumentTypeError("{0} 必须是 JSON 对象".format(argument_name))
     return parsed
 
 
@@ -96,7 +104,7 @@ _MIME_FALLBACK = {
 FILE_SIZE_WARN_BYTES = 5 * 1024 * 1024
 
 
-def resolve_image_source(image_value: str) -> tuple[str, str | None]:
+def resolve_image_source(image_value):
     """URL 直接返回；本地文件读取后返回 data URI。"""
     if image_value.startswith(("http://", "https://")):
         return image_value, None
@@ -107,9 +115,11 @@ def resolve_image_source(image_value: str) -> tuple[str, str | None]:
     file_size = os.path.getsize(image_value)
     if file_size > FILE_SIZE_WARN_BYTES:
         print(
-            f"警告: 图片 {os.path.basename(image_value)} 大小 "
-            f"{file_size / 1024 / 1024:.1f} MB，base64 后约 "
-            f"{file_size * 4 / 3 / 1024 / 1024:.1f} MB",
+            "警告: 图片 {0} 大小 {1:.1f} MB，base64 后约 {2:.1f} MB".format(
+                os.path.basename(image_value),
+                file_size / 1024.0 / 1024.0,
+                file_size * 4.0 / 3.0 / 1024.0 / 1024.0,
+            ),
             file=sys.stderr,
         )
 
@@ -121,17 +131,17 @@ def resolve_image_source(image_value: str) -> tuple[str, str | None]:
     with open(image_value, "rb") as f:
         b64_str = base64.b64encode(f.read()).decode("ascii")
 
-    return f"data:{mime_type};base64,{b64_str}", mime_type
+    return "data:{0};base64,{1}".format(mime_type, b64_str), mime_type
 
 
-def build_structured_attachments(args: argparse.Namespace) -> list[dict[str, Any]]:
+def build_structured_attachments(args):
     """构造图片和结构化选项附件。"""
-    attachments: list[dict[str, Any]] = []
+    attachments = []
 
     for index, image_value in enumerate(args.image):
         media_id = args.image_media_id[index] if index < len(args.image_media_id) else None
         resolved_url, mime_type = resolve_image_source(image_value)
-        payload_dict: dict[str, Any] = {
+        payload_dict = {
             "url": resolved_url,
             "signed_url": resolved_url,
             "media_id": media_id,
@@ -160,7 +170,7 @@ def build_structured_attachments(args: argparse.Namespace) -> list[dict[str, Any
     return attachments
 
 
-def build_payload(args: argparse.Namespace) -> dict[str, Any]:
+def build_payload(args):
     """构造请求体。"""
     state = load_state()
     attachments = build_structured_attachments(args)
@@ -172,14 +182,14 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     if attachments:
         message["attachments"] = attachments
 
-    client_info: dict[str, Any] = {
+    client_info = {
         "user_agent": "claude-code-openclaw-recycle-skill",
     }
     resolved_client_ip = args.client_ip or state.get("client_ip")
     if resolved_client_ip:
         client_info["ip"] = resolved_client_ip
 
-    payload: dict[str, Any] = {
+    payload = {
         "messages": [message],
         "context_control": {
             "allow_auto_resume": args.allow_auto_resume,
@@ -199,10 +209,10 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     return payload
 
 
-def format_request_error(exc: Exception) -> str:
+def format_request_error(exc):
     """格式化请求异常，优先透传后端错误码和错误信息。"""
     if isinstance(exc, HTTPError):
-        error_message = f"HTTP {exc.code}: {exc.reason}"
+        error_message = "HTTP {0}: {1}".format(exc.code, exc.reason)
         try:
             response_body = exc.read().decode("utf-8")
             parsed = json.loads(response_body)
@@ -210,14 +220,14 @@ def format_request_error(exc: Exception) -> str:
             backend_message = parsed.get("error_message")
             if backend_code or backend_message:
                 details = " | ".join(part for part in [backend_code, backend_message] if part)
-                return f"{error_message} | {details}"
+                return "{0} | {1}".format(error_message, details)
         except Exception:
             return error_message
         return error_message
     return str(exc)
 
 
-def main() -> int:
+def main():
     """脚本入口。"""
     parser = argparse.ArgumentParser(description="调用 OpenClaw 回收估价接口")
     parser.add_argument("--text", required=True, help="用户输入文本")
@@ -258,7 +268,6 @@ def main() -> int:
         url=args.base_url,
         data=body,
         headers={"Content-Type": "application/json"},
-        method="POST",
     )
 
     try:
@@ -277,7 +286,7 @@ def main() -> int:
             print(json.dumps(parsed, ensure_ascii=False, indent=2))
             return 0
     except Exception as exc:
-        print(f"请求失败: {format_request_error(exc)}", file=sys.stderr)
+        print("请求失败: {0}".format(format_request_error(exc)), file=sys.stderr)
         return 1
 
 
