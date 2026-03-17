@@ -1,7 +1,7 @@
 ---
 name: zhuanzhuan-recycle-estimator
-description: Trigger for requests about recycle price, resale value, trade-in estimate, or "how much can this sell for", especially for phones, tablets, laptops, cameras, audio devices, home electronics, and Zhuanzhuan recycle pricing with text, photos, model, storage, color, or condition details
-version: 1.0.0
+description: 用户询问回收、估价、报价、回收价、值多少钱、能卖多少、转转回收时触发，支持全品类商品回收估价，结合图片、文字、型号、规格、成色等信息给出参考回收价
+version: 1.0.1
 metadata:
   openclaw:
     requires:
