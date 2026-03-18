@@ -7,7 +7,9 @@ import json
 import mimetypes
 import os
 import re
+import subprocess
 import sys
+import tempfile
 from urllib import request
 from urllib.error import HTTPError
 
@@ -102,10 +104,104 @@ _MIME_FALLBACK = {
     ".bmp": "image/bmp",
 }
 FILE_SIZE_WARN_BYTES = 5 * 1024 * 1024
+COMPRESS_THRESHOLD_BYTES = 1 * 1024 * 1024
+COMPRESS_MAX_DIMENSION = 2048
+
+
+def _has_command(cmd):
+    """检查系统命令是否可用。"""
+    try:
+        subprocess.run([cmd, "--version"], capture_output=True)
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def _compress_with_sips(image_path, tmp_path, max_dim, quality):
+    """macOS sips 压缩。"""
+    subprocess.run(
+        [
+            "sips",
+            "-s", "format", "jpeg",
+            "-s", "formatOptions", str(quality),
+            "--resampleHeightWidthMax", str(max_dim),
+            image_path,
+            "--out", tmp_path,
+        ],
+        capture_output=True,
+        check=True,
+    )
+
+
+def _compress_with_convert(image_path, tmp_path, max_dim, quality):
+    """ImageMagick convert 压缩（Linux 常用）。"""
+    subprocess.run(
+        [
+            "convert",
+            image_path,
+            "-resize", "{0}x{0}>".format(max_dim),
+            "-quality", str(quality),
+            "-auto-orient",
+            tmp_path,
+        ],
+        capture_output=True,
+        check=True,
+    )
+
+
+def _compress_image(image_path):
+    """自动检测可用工具压缩图片，支持 macOS(sips) 和 Linux(ImageMagick)。
+
+    返回 (压缩后字节, mime_type) 或 None。
+    """
+    # 检测可用的压缩工具
+    if _has_command("sips"):
+        compress_fn = _compress_with_sips
+        tool_name = "sips"
+    elif _has_command("convert"):
+        compress_fn = _compress_with_convert
+        tool_name = "convert"
+    else:
+        print(
+            "警告: 未找到图片压缩工具（需要 macOS sips 或 ImageMagick convert）",
+            file=sys.stderr,
+        )
+        return None
+
+    original_size = os.path.getsize(image_path)
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".jpg")
+    os.close(tmp_fd)
+    try:
+        # 第一轮：质量 70，最大边 2048
+        compress_fn(image_path, tmp_path, COMPRESS_MAX_DIMENSION, 70)
+
+        # 如果还是太大，第二轮：质量 40，最大边 1600
+        if os.path.getsize(tmp_path) > COMPRESS_THRESHOLD_BYTES:
+            compress_fn(image_path, tmp_path, 1600, 40)
+
+        with open(tmp_path, "rb") as f:
+            compressed_bytes = f.read()
+
+        print(
+            "图片压缩({0}): {1} {2:.1f}MB -> {3:.1f}MB".format(
+                tool_name,
+                os.path.basename(image_path),
+                original_size / 1024.0 / 1024.0,
+                len(compressed_bytes) / 1024.0 / 1024.0,
+            ),
+            file=sys.stderr,
+        )
+        return compressed_bytes, "image/jpeg"
+    except (subprocess.CalledProcessError, OSError) as exc:
+        print("警告: {0} 压缩失败: {1}".format(tool_name, exc), file=sys.stderr)
+        return None
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 
 def resolve_image_source(image_value):
-    """URL 直接返回；本地文件读取后返回 data URI。"""
+    """URL 直接返回；本地文件读取后返回 data URI，大于 1MB 自动压缩。"""
     if image_value.startswith(("http://", "https://")):
         return image_value, None
 
@@ -113,6 +209,19 @@ def resolve_image_source(image_value):
         return image_value, None  # 保持向后兼容
 
     file_size = os.path.getsize(image_value)
+
+    # 大于 1MB 时自动压缩
+    if file_size > COMPRESS_THRESHOLD_BYTES:
+        result = _compress_image(image_value)
+        if result:
+            compressed_bytes, mime_type = result
+            b64_str = base64.b64encode(compressed_bytes).decode("ascii")
+            return "data:{0};base64,{1}".format(mime_type, b64_str), mime_type
+        print(
+            "警告: 图片压缩失败，使用原图 ({0:.1f}MB)".format(file_size / 1024.0 / 1024.0),
+            file=sys.stderr,
+        )
+
     if file_size > FILE_SIZE_WARN_BYTES:
         print(
             "警告: 图片 {0} 大小 {1:.1f} MB，base64 后约 {2:.1f} MB".format(
