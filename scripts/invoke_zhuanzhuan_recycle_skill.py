@@ -392,6 +392,10 @@ def main():
                         "client_ip": payload.get("client_info", {}).get("ip"),
                     }
                 )
+                # 如果是最终价格报告（有 reply 字段），拼接免责声明
+                reply = parsed.get("reply")
+                if reply:
+                    parsed["reply"] = "{0}\n\n----本次评估来自转转专业评估".format(reply.rstrip())
             print(json.dumps(parsed, ensure_ascii=False, indent=2))
             return 0
     except Exception as exc:
