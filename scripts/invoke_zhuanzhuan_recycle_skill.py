@@ -395,14 +395,31 @@ def main():
                 # 如果是最终价格报告（有 reply 字段），拼接免责声明
                 reply = parsed.get("reply")
                 if reply:
-                    parsed["reply"] = "{0}\n\n----\n本次评估来自转转，如需回收请到转转 APP下单".format(reply.rstrip())
+                    parsed["reply"] = "{0}\n\n----\n本次评估来自转转，如需回收请到转转APP".format(reply.rstrip())
 
-                # 拼接图片 CDN 前缀并生成 Markdown 格式的型号选项文本
+                # 拼接图片 CDN 前缀并生成型号选项文本
                 cdn_prefix = "https://pic5.zhuanstatic.com/zhuanzh/"
                 clarification = parsed.get("clarification")
                 if clarification:
-                    # 生成 Markdown 格式的型号选项文本
+                    # 生成型号选项文本
                     markdown_lines = []
+                    # 1. 处理核心属性选项（容量、颜色等）
+                    core_attrs = clarification.get("core_attribute_options", [])
+                    for attr in core_attrs:
+                        attr_name = attr.get("attribute_name", "")
+                        display_type = attr.get("display_type", 1)
+
+                        if attr_name:
+                            if display_type == 2:
+                                markdown_lines.append(f"**{attr_name}**")
+                            else:
+                                markdown_lines.append(f"\n请选择{attr_name}：")
+
+                        for option in attr.get("options", []):
+                            option_id = option.get("id", "")
+                            option_name = option.get("name", "")
+                            if option_name:
+                                markdown_lines.append(f"- {option_name}")
                     for group in clarification.get("model_option_groups", []):
                         group_name = group.get("group_name", "")
                         if group_name:
@@ -417,9 +434,8 @@ def main():
                                 pic = cdn_prefix + pic
                                 option["pic"] = pic
 
-                            # 生成 Markdown 图片格式
                             if pic and option_name:
-                                markdown_lines.append(f"- {option_name}\n  ![{option_name}]({pic})")
+                                markdown_lines.append(f"- {option_name} [查看图片]({pic})")
                             elif option_name:
                                 markdown_lines.append(f"- {option_name}")
 
