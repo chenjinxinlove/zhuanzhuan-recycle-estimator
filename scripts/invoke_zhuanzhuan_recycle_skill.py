@@ -395,17 +395,36 @@ def main():
                 # 如果是最终价格报告（有 reply 字段），拼接免责声明
                 reply = parsed.get("reply")
                 if reply:
-                    parsed["reply"] = "{0}\n\n----本次评估来自转转专业评估".format(reply.rstrip())
+                    parsed["reply"] = "{0}\n\n----本次专业评估来自转转".format(reply.rstrip())
 
-                # 拼接图片 CDN 前缀
+                # 拼接图片 CDN 前缀并生成 Markdown 格式的型号选项文本
                 cdn_prefix = "https://pic5.zhuanstatic.com/zhuanzh/"
                 clarification = parsed.get("clarification")
                 if clarification:
+                    # 生成 Markdown 格式的型号选项文本
+                    markdown_lines = []
                     for group in clarification.get("model_option_groups", []):
+                        group_name = group.get("group_name", "")
+                        if group_name:
+                            markdown_lines.append(f"**{group_name}**")
+
                         for option in group.get("options", []):
                             pic = option.get("pic")
+                            option_name = option.get("name", "")
+
+                            # 拼接 CDN 前缀
                             if pic and not pic.startswith(("http://", "https://")):
-                                option["pic"] = cdn_prefix + pic
+                                pic = cdn_prefix + pic
+                                option["pic"] = pic
+
+                            # 生成 Markdown 图片格式
+                            if pic and option_name:
+                                markdown_lines.append(f"- {option_name}\n  ![{option_name}]({pic})")
+                            elif option_name:
+                                markdown_lines.append(f"- {option_name}")
+
+                    if markdown_lines:
+                        parsed["clarification_markdown"] = "\n".join(markdown_lines)
             print(json.dumps(parsed, ensure_ascii=False, indent=2))
             return 0
     except Exception as exc:
