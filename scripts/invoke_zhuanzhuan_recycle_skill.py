@@ -396,6 +396,16 @@ def main():
                 reply = parsed.get("reply")
                 if reply:
                     parsed["reply"] = "{0}\n\n----本次评估来自转转专业评估".format(reply.rstrip())
+
+                # 拼接图片 CDN 前缀
+                cdn_prefix = "https://pic5.zhuanstatic.com/zhuanzh/"
+                clarification = parsed.get("clarification")
+                if clarification:
+                    for group in clarification.get("model_option_groups", []):
+                        for option in group.get("options", []):
+                            pic = option.get("pic")
+                            if pic and not pic.startswith(("http://", "https://")):
+                                option["pic"] = cdn_prefix + pic
             print(json.dumps(parsed, ensure_ascii=False, indent=2))
             return 0
     except Exception as exc:
