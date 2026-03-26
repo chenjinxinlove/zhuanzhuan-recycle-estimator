@@ -251,7 +251,18 @@ python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
 
 ### 用户选择选项后的续接方式
 
-- 推荐直接把用户选择转成自然语言文本续接，例如 `256g`、`512g`、`1tb`
+**重要：当用户回复 1、2、3、4 选择选项时，必须将选项对应的文本作为 `--text` 发送给后端**
+
+示例流程：
+1. 后端返回容量选项：1. 128G、2. 256G、3. 512G
+2. 用户回复 "1"
+3. 前端应将数字 "1" 映射为选项文本 "128G"，并执行：
+   ```bash
+   python3 {baseDir}/scripts/invoke_zhuanzhuan_recycle_skill.py \
+     --text "128G"
+   ```
+4. 同时复用本地状态中的 `skill_token` 和 `session_id`
+
 - 只在确认是同一商品续聊时，才复用本地状态中的 `skill_token` 和 `session_id`
 - 遇到新的独立估价请求，优先加 `--reset-state`
 - `attrs` / `model_option` 仅作为补充能力，不是必须链路
